@@ -1,0 +1,5 @@
+input/
+.aider.chat.history.md
+*bak
+*.code-workspace
+out/
