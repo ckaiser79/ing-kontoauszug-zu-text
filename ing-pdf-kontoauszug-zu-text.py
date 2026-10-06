@@ -43,15 +43,16 @@ def betrag(s: str) -> str:
     return s.replace(".", "")
 
 
-def umsaetze(pdf_path: str):
+def umsaetze(pdf_path: str, verbose: bool = False):
     with pdfplumber.open(pdf_path) as pdf:
         for page in pdf.pages:
             # x_tolerance klein, sonst gehen Leerzeichen verloren
             text = page.extract_text(x_tolerance=1) or ""
 
-            print(f"=== DEBUG: Seite aus {pdf_path} ===", file=sys.stderr)
-            print(text, file=sys.stderr)
-            print("=== ENDE DEBUG ===", file=sys.stderr)
+            if verbose:
+                print(f"=== DEBUG: Seite aus {pdf_path} ===", file=sys.stderr)
+                print(text, file=sys.stderr)
+                print("=== ENDE DEBUG ===", file=sys.stderr)
 
             aktiv, cur = False, None
             for line in (l.strip() for l in text.splitlines()):
@@ -106,6 +107,7 @@ def main():
                     help="An Ausgabedatei anhängen (Default: stdout)")
     ap.add_argument("--sep", default="\t", help="Trennzeichen (Default: Tab)")
     ap.add_argument("-f", "--fields", help="Feldauswahl und -reihenfolge, z.B. '<empty>,datum,buchung,betrag' (verfügbar: datum, betrag, buchung, zweck)")
+    ap.add_argument("-v", "--verbose", action="store_true", help="Debug-Ausgabe aktivieren")
     args = ap.parse_args()
 
     if args.append:
@@ -130,7 +132,7 @@ def main():
         for path in pdfs:
             try:
                 n = 0
-                for u in umsaetze(path):
+                for u in umsaetze(path, args.verbose):
                     werte = []
                     for feld in felder:
                         if feld == "empty":
