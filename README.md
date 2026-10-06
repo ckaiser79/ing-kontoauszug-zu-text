@@ -1,6 +1,8 @@
 # ING Diba Kontoauszug PDF Export
 
-Dieses Tool extrahiert Umsätze aus ING-Kontoauszügen im PDF-Format und gibt sie als strukturierten Text aus. Die Ausgabe erfolgt als Tab-getrennte Werte mit Datum, Betrag, Buchungstext und Verwendungszweck.
+Dieses Tool extrahiert Umsätze aus ING-Kontoauszügen im PDF-Format und gibt sie als TSV aus. Die Ausgabe erfolgt als Tab-getrennte Werte mit Datum, Betrag, Buchungstext und Verwendungszweck.
+
+Zweck ist es, die Werte in Excel oder eine Buchhaltungssoftware zu importieren.
 
 ## Setup
 
