@@ -26,7 +26,7 @@ from datetime import datetime
 import pdfplumber
 
 # Zeile 1 eines Umsatzes: Buchungsdatum, Buchungstext, Betrag
-RE_BUCHUNG = re.compile(r"^(\d{2}\.\d{2}\.\d{4})\s+(.+?)\s+(-?[\d.]+,\d{2})$")
+RE_BUCHUNG = re.compile(r"^(\d{2}\.\d{2}\.\d{4})\s+(.+?)\s+\(?(-?[\d.]+,\d{2})\)?$")
 # Zeile 2: Valutadatum + erste Zeile Verwendungszweck
 RE_VALUTA = re.compile(r"^(\d{2}\.\d{2}\.\d{4})\s*(.*)$")
 # Ende der Umsatzliste auf einer Seite
@@ -56,22 +56,29 @@ def umsaetze(pdf_path: str, verbose: bool = False):
 
             aktiv, cur = False, None
             for line in (l.strip() for l in text.splitlines()):
+                
                 if RE_START.match(line):
                     aktiv = True
+                    
                     continue
                 if not aktiv:
                     continue
                 if RE_ENDE.match(line):
                     break
+
                 m = RE_BUCHUNG.match(line)
+
                 if m:
+                    
                     if cur:
                         yield cur
                     cur = {"datum": iso(m[1]), "betrag": betrag(m[3]),
                            "buchung": m[2], "zweck": [], "valuta": False}
                     continue
+                
                 if cur is None:
                     continue
+                
                 m = RE_VALUTA.match(line)
                 if m and not cur["valuta"]:
                     cur["valuta"] = True
@@ -79,6 +86,7 @@ def umsaetze(pdf_path: str, verbose: bool = False):
                         cur["zweck"].append(m[2])
                 else:
                     cur["zweck"].append(line)
+
             if cur:
                 yield cur
 
