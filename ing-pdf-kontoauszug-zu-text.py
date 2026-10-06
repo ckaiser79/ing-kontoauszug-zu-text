@@ -39,8 +39,8 @@ def iso(datum: str) -> str:
 
 
 def betrag(s: str) -> str:
-    # "1.234,56" -> "1234.56"
-    return s.replace(".", "").replace(",", ".")
+    # "1.234,56" -> "1234,56"
+    return s.replace(".", "")
 
 
 def umsaetze(pdf_path: str):
