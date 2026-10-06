@@ -48,6 +48,9 @@ def umsaetze(pdf_path: str):
         for page in pdf.pages:
             # x_tolerance klein, sonst gehen Leerzeichen verloren
             text = page.extract_text(x_tolerance=1) or ""
+
+            # TODO debug text to stdout
+
             aktiv, cur = False, None
             for line in (l.strip() for l in text.splitlines()):
                 if RE_START.match(line):
