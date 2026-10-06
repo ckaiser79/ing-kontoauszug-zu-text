@@ -59,10 +59,11 @@ def umsaetze(pdf_path: str, verbose: bool = False):
                 
                 if RE_START.match(line):
                     aktiv = True
-                    
                     continue
+                
                 if not aktiv:
                     continue
+                
                 if RE_ENDE.match(line):
                     break
 
@@ -72,6 +73,7 @@ def umsaetze(pdf_path: str, verbose: bool = False):
                     
                     if cur:
                         yield cur
+                    
                     cur = {"datum": iso(m[1]), "betrag": betrag(m[3]),
                            "buchung": m[2], "zweck": [], "valuta": False}
                     continue
@@ -80,10 +82,13 @@ def umsaetze(pdf_path: str, verbose: bool = False):
                     continue
                 
                 m = RE_VALUTA.match(line)
+                
                 if m and not cur["valuta"]:
                     cur["valuta"] = True
+                    
                     if m[2]:
                         cur["zweck"].append(m[2])
+                
                 else:
                     cur["zweck"].append(line)
 
@@ -95,15 +100,20 @@ def dateien(muster):
     """Löst Wildcards auf (sortiert, ohne Dubletten). Nicht passende Muster
     bleiben stehen, damit später eine Fehlermeldung kommt."""
     gesehen, ergebnis = set(), []
+    
     for m in muster:
         treffer = sorted(glob.glob(m, recursive=True)) if glob.has_magic(m) else [m]
+        
         if not treffer:
             print(f"{m}: keine passenden Dateien", file=sys.stderr)
+        
         for t in treffer:
             key = os.path.normcase(os.path.abspath(t))
+            
             if key not in gesehen:
                 gesehen.add(key)
                 ergebnis.append(t)
+    
     return ergebnis
 
 
@@ -121,47 +131,67 @@ def main():
     if args.append:
         neu = not os.path.exists(args.append) or os.path.getsize(args.append) == 0
         out = open(args.append, "a", encoding="utf-8")
+    
     else:
         neu, out = True, sys.stdout
 
     # Feldkonfiguration verarbeiten
     if args.fields:
         felder = [f.strip() for f in args.fields.split(",")]
+        
         for feld in felder:
+            
             if feld not in ["empty", "datum", "betrag", "buchung", "zweck"]:
                 print(f"Unbekanntes Feld: {feld}", file=sys.stderr)
                 sys.exit(1)
+    
     else:
         felder = ["datum", "betrag", "buchung", "zweck"]
 
     pdfs = dateien(args.pdf)
     fehler = 0 if pdfs else 1
+    
     try:
+        
         for path in pdfs:
+            
             try:
                 n = 0
+                
                 for u in umsaetze(path, args.verbose):
                     werte = []
+                    
                     for feld in felder:
+                        
                         if feld == "empty":
                             werte.append("")
+                        
                         elif feld == "datum":
                             werte.append(u["datum"])
+                        
                         elif feld == "betrag":
                             werte.append(u["betrag"])
+                        
                         elif feld == "buchung":
                             werte.append(u["buchung"])
+                        
                         elif feld == "zweck":
                             werte.append(u["zweck"][0] if u["zweck"] else "")
+                    
                     print(args.sep.join(werte), file=out)
                     n += 1
+                
                 print(f"{path}: {n} Umsätze", file=sys.stderr)
+            
             except Exception as e:  # eine kaputte Datei bricht nicht alles ab
                 fehler += 1
                 print(f"{path}: FEHLER {e}", file=sys.stderr)
+    
     finally:
+        
         if out is not sys.stdout:
             out.close()
+    
     sys.exit(1 if fehler else 0)
 
 
