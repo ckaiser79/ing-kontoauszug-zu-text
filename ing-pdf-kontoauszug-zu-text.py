@@ -115,7 +115,7 @@ def main():
         felder = [f.strip() for f in args.fields.split(",")]
         header_namen = []
         for feld in felder:
-            if feld == "<empty>":
+            if feld == "empty":
                 header_namen.append("")
             elif feld == "datum":
                 header_namen.append("Datum")
@@ -143,7 +143,7 @@ def main():
                 for u in umsaetze(path):
                     werte = []
                     for feld in felder:
-                        if feld == "<empty>":
+                        if feld == "empty":
                             werte.append("")
                         elif feld == "datum":
                             werte.append(u["datum"])
