@@ -101,6 +101,7 @@ def main():
                     help="An Ausgabedatei anhängen (Default: stdout)")
     ap.add_argument("--sep", default="\t", help="Trennzeichen (Default: Tab)")
     ap.add_argument("--no-header", action='store_true', help="Kopfzeile unterdrücken")
+    ap.add_argument("-f", "--fields", help="Feldauswahl und -reihenfolge, z.B. '<empty>,datum,buchung,betrag' (verfügbar: datum, betrag, buchung, zweck)")
     args = ap.parse_args()
 
     if args.append:
@@ -109,17 +110,50 @@ def main():
     else:
         neu, out = True, sys.stdout
 
+    # Feldkonfiguration verarbeiten
+    if args.fields:
+        felder = [f.strip() for f in args.fields.split(",")]
+        header_namen = []
+        for feld in felder:
+            if feld == "<empty>":
+                header_namen.append("")
+            elif feld == "datum":
+                header_namen.append("Datum")
+            elif feld == "betrag":
+                header_namen.append("Betrag")
+            elif feld == "buchung":
+                header_namen.append("Buchung")
+            elif feld == "zweck":
+                header_namen.append("Verwendungszweck")
+            else:
+                print(f"Unbekanntes Feld: {feld}", file=sys.stderr)
+                sys.exit(1)
+    else:
+        felder = ["datum", "betrag", "buchung", "zweck"]
+        header_namen = ["Datum", "Betrag", "Buchung", "Verwendungszweck"]
+
     pdfs = dateien(args.pdf)
     fehler = 0 if pdfs else 1
     try:
         if neu and not args.no_header:
-            print(args.sep.join(["Datum", "Betrag", "Buchung", "Verwendungszweck"]), file=out)
+            print(args.sep.join(header_namen), file=out)
         for path in pdfs:
             try:
                 n = 0
                 for u in umsaetze(path):
-                    print(args.sep.join([u["datum"], u["betrag"], u["buchung"],
-                                         u["zweck"][0] if u["zweck"] else ""]), file=out)
+                    werte = []
+                    for feld in felder:
+                        if feld == "<empty>":
+                            werte.append("")
+                        elif feld == "datum":
+                            werte.append(u["datum"])
+                        elif feld == "betrag":
+                            werte.append(u["betrag"])
+                        elif feld == "buchung":
+                            werte.append(u["buchung"])
+                        elif feld == "zweck":
+                            werte.append(u["zweck"][0] if u["zweck"] else "")
+                    print(args.sep.join(werte), file=out)
                     n += 1
                 print(f"{path}: {n} Umsätze", file=sys.stderr)
             except Exception as e:  # eine kaputte Datei bricht nicht alles ab
