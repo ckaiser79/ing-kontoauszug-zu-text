@@ -100,7 +100,7 @@ def main():
     ap.add_argument("-a", "--append", metavar="DATEI",
                     help="An Ausgabedatei anhängen (Default: stdout)")
     ap.add_argument("--sep", default="\t", help="Trennzeichen (Default: Tab)")
-    ap.add_argument("--header", action='store_true')
+    ap.add_argument("--no-header", action='store_true', help="Kopfzeile unterdrücken")
     args = ap.parse_args()
 
     if args.append:
@@ -112,7 +112,7 @@ def main():
     pdfs = dateien(args.pdf)
     fehler = 0 if pdfs else 1
     try:
-        if neu and args.header:
+        if neu and not args.no_header:
             print(args.sep.join(["Datum", "Betrag", "Buchung", "Verwendungszweck"]), file=out)
         for path in pdfs:
             try:
