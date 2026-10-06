@@ -159,26 +159,26 @@ def main():
                 n = 0
                 
                 for transaction in transactions(path, args.verbose):
-                    values = []
+                    row = []
                     
                     for field in fields:
                         
                         if field == "empty":
-                            values.append("")
+                            row.append("")
                         
                         elif field == "datum":
-                            values.append(transaction["datum"])
+                            row.append(transaction["datum"])
                         
                         elif field == "betrag":
-                            values.append(transaction["betrag"])
+                            row.append(transaction["betrag"])
                         
                         elif field == "buchung":
-                            values.append(transaction["buchung"])
+                            row.append(transaction["buchung"])
                         
                         elif field == "zweck":
-                            values.append(transaction["zweck"][0] if transaction["zweck"] else "")
+                            row.append(transaction["zweck"][0] if transaction["zweck"] else "")
                     
-                    print(args.sep.join(values), file=out)
+                    print(args.sep.join(row), file=out)
                     n += 1
                 
                 print(f"{path}: {n} Umsätze", file=sys.stderr)
