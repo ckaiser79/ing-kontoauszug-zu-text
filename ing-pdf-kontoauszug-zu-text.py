@@ -5,11 +5,20 @@ Ausgabe je Umsatz (Tab-getrennt):
     Datum (yyyy-mm-dd)  Betrag  Buchung  Verwendungszweck
 
 Aufruf:
-    python ing_umsaetze.py auszug1.pdf [auszug2.pdf ...] [-o out.tsv]
+    python ing-pdf-kontoauszug-zu-text.py auszug1.pdf [auszug2.pdf ...] [-a umsaetze.tsv]
+    python .\\ing-pdf-kontoauszug-zu-text.py ".\\input\\*.pdf" -a umsaetze.tsv
+
+Wildcards (*, ?, [..], **) werden vom Script selbst aufgelöst, damit das
+auch unter Windows/PowerShell funktioniert (dort expandiert die Shell nicht).
+
+Ohne -a geht die Ausgabe nach stdout. Mit -a wird an die Datei angehängt;
+die Kopfzeile wird nur geschrieben, wenn die Datei neu oder leer ist.
 
 Abhängigkeit: pip install pdfplumber
 """
 import argparse
+import glob
+import os
 import re
 import sys
 from datetime import datetime
@@ -68,27 +77,58 @@ def umsaetze(pdf_path: str):
                 yield cur
 
 
+def dateien(muster):
+    """Löst Wildcards auf (sortiert, ohne Dubletten). Nicht passende Muster
+    bleiben stehen, damit später eine Fehlermeldung kommt."""
+    gesehen, ergebnis = set(), []
+    for m in muster:
+        treffer = sorted(glob.glob(m, recursive=True)) if glob.has_magic(m) else [m]
+        if not treffer:
+            print(f"{m}: keine passenden Dateien", file=sys.stderr)
+        for t in treffer:
+            key = os.path.normcase(os.path.abspath(t))
+            if key not in gesehen:
+                gesehen.add(key)
+                ergebnis.append(t)
+    return ergebnis
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("pdf", nargs="+")
-    ap.add_argument("-o", "--output", help="Ausgabedatei (Default: stdout)")
+    ap.add_argument("pdf", nargs="+", help="PDF-Dateien oder Wildcards, z.B. \".\\input\\*.pdf\"")
+    ap.add_argument("-a", "--append", metavar="DATEI",
+                    help="An Ausgabedatei anhängen (Default: stdout)")
     ap.add_argument("--sep", default="\t", help="Trennzeichen (Default: Tab)")
     ap.add_argument("--header", action='store_true')
     args = ap.parse_args()
 
-    out = open(args.output, "w", encoding="utf-8") if args.output else sys.stdout
+    if args.append:
+        neu = not os.path.exists(args.append) or os.path.getsize(args.append) == 0
+        out = open(args.append, "a", encoding="utf-8")
+    else:
+        neu, out = True, sys.stdout
+
+    pdfs = dateien(args.pdf)
+    fehler = 0 if pdfs else 1
     try:
-        if(args.header):
+        if neu and args.header:
             print(args.sep.join(["Datum", "Betrag", "Buchung", "Verwendungszweck"]), file=out)
-            
-        for path in args.pdf:
-            for u in umsaetze(path):
-                print(args.sep.join([u["datum"], u["betrag"], u["buchung"],
-                                     u["zweck"][0] if u["zweck"] else ""]), file=out)
+        for path in pdfs:
+            try:
+                n = 0
+                for u in umsaetze(path):
+                    print(args.sep.join([u["datum"], u["betrag"], u["buchung"],
+                                         u["zweck"][0] if u["zweck"] else ""]), file=out)
+                    n += 1
+                print(f"{path}: {n} Umsätze", file=sys.stderr)
+            except Exception as e:  # eine kaputte Datei bricht nicht alles ab
+                fehler += 1
+                print(f"{path}: FEHLER {e}", file=sys.stderr)
     finally:
         if out is not sys.stdout:
             out.close()
+    sys.exit(1 if fehler else 0)
 
 
 if __name__ == "__main__":
