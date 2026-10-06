@@ -100,7 +100,6 @@ def main():
     ap.add_argument("-a", "--append", metavar="DATEI",
                     help="An Ausgabedatei anhängen (Default: stdout)")
     ap.add_argument("--sep", default="\t", help="Trennzeichen (Default: Tab)")
-    ap.add_argument("--no-header", action='store_true', help="Kopfzeile unterdrücken")
     ap.add_argument("-f", "--fields", help="Feldauswahl und -reihenfolge, z.B. '<empty>,datum,buchung,betrag' (verfügbar: datum, betrag, buchung, zweck)")
     args = ap.parse_args()
 
@@ -113,30 +112,16 @@ def main():
     # Feldkonfiguration verarbeiten
     if args.fields:
         felder = [f.strip() for f in args.fields.split(",")]
-        header_namen = []
         for feld in felder:
-            if feld == "empty":
-                header_namen.append("")
-            elif feld == "datum":
-                header_namen.append("Datum")
-            elif feld == "betrag":
-                header_namen.append("Betrag")
-            elif feld == "buchung":
-                header_namen.append("Buchung")
-            elif feld == "zweck":
-                header_namen.append("Verwendungszweck")
-            else:
+            if feld not in ["empty", "datum", "betrag", "buchung", "zweck"]:
                 print(f"Unbekanntes Feld: {feld}", file=sys.stderr)
                 sys.exit(1)
     else:
         felder = ["datum", "betrag", "buchung", "zweck"]
-        header_namen = ["Datum", "Betrag", "Buchung", "Verwendungszweck"]
 
     pdfs = dateien(args.pdf)
     fehler = 0 if pdfs else 1
     try:
-        if neu and not args.no_header:
-            print(args.sep.join(header_namen), file=out)
         for path in pdfs:
             try:
                 n = 0
