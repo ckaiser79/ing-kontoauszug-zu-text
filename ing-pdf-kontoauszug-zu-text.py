@@ -34,16 +34,16 @@ RE_ENDE = re.compile(r"^(Neuer Saldo|Übertrag|Kunden-Information)\b")
 RE_START = re.compile(r"^Valuta$")
 
 
-def iso(datum: str) -> str:
-    return datetime.strptime(datum, "%d.%m.%Y").strftime("%Y-%m-%d")
+def iso(date: str) -> str:
+    return datetime.strptime(date, "%d.%m.%Y").strftime("%Y-%m-%d")
 
 
-def betrag(s: str) -> str:
+def amount(s: str) -> str:
     # "1.234,56" -> "1234,56"
     return s.replace(".", "")
 
 
-def umsaetze(pdf_path: str, verbose: bool = False):
+def transactions(pdf_path: str, verbose: bool = False):
     with pdfplumber.open(pdf_path) as pdf:
         for page in pdf.pages:
             # x_tolerance klein, sonst gehen Leerzeichen verloren
@@ -54,14 +54,14 @@ def umsaetze(pdf_path: str, verbose: bool = False):
                 print(text, file=sys.stderr)
                 print("=== ENDE DEBUG ===", file=sys.stderr)
 
-            aktiv, cur = False, None
+            active, cur = False, None
             for line in (l.strip() for l in text.splitlines()):
                 
                 if RE_START.match(line):
-                    aktiv = True
+                    active = True
                     continue
                 
-                if not aktiv:
+                if not active:
                     continue
                 
                 if RE_ENDE.match(line):
@@ -74,7 +74,7 @@ def umsaetze(pdf_path: str, verbose: bool = False):
                     if cur:
                         yield cur
                     
-                    cur = {"datum": iso(m[1]), "betrag": betrag(m[3]),
+                    cur = {"datum": iso(m[1]), "betrag": amount(m[3]),
                            "buchung": m[2], "zweck": [], "valuta": False}
                     continue
                 
@@ -96,25 +96,25 @@ def umsaetze(pdf_path: str, verbose: bool = False):
                 yield cur
 
 
-def dateien(muster):
+def files(patterns):
     """Löst Wildcards auf (sortiert, ohne Dubletten). Nicht passende Muster
     bleiben stehen, damit später eine Fehlermeldung kommt."""
-    gesehen, ergebnis = set(), []
+    seen, result = set(), []
     
-    for m in muster:
-        treffer = sorted(glob.glob(m, recursive=True)) if glob.has_magic(m) else [m]
+    for pattern in patterns:
+        matches = sorted(glob.glob(pattern, recursive=True)) if glob.has_magic(pattern) else [pattern]
         
-        if not treffer:
-            print(f"{m}: keine passenden Dateien", file=sys.stderr)
+        if not matches:
+            print(f"{pattern}: keine passenden Dateien", file=sys.stderr)
         
-        for t in treffer:
-            key = os.path.normcase(os.path.abspath(t))
+        for match in matches:
+            key = os.path.normcase(os.path.abspath(match))
             
-            if key not in gesehen:
-                gesehen.add(key)
-                ergebnis.append(t)
+            if key not in seen:
+                seen.add(key)
+                result.append(match)
     
-    return ergebnis
+    return result
 
 
 def main():
@@ -129,27 +129,27 @@ def main():
     args = ap.parse_args()
 
     if args.append:
-        neu = not os.path.exists(args.append) or os.path.getsize(args.append) == 0
+        new = not os.path.exists(args.append) or os.path.getsize(args.append) == 0
         out = open(args.append, "a", encoding="utf-8")
     
     else:
-        neu, out = True, sys.stdout
+        new, out = True, sys.stdout
 
     # Feldkonfiguration verarbeiten
     if args.fields:
-        felder = [f.strip() for f in args.fields.split(",")]
+        fields = [f.strip() for f in args.fields.split(",")]
         
-        for feld in felder:
+        for field in fields:
             
-            if feld not in ["empty", "datum", "betrag", "buchung", "zweck"]:
-                print(f"Unbekanntes Feld: {feld}", file=sys.stderr)
+            if field not in ["empty", "datum", "betrag", "buchung", "zweck"]:
+                print(f"Unbekanntes Feld: {field}", file=sys.stderr)
                 sys.exit(1)
     
     else:
-        felder = ["datum", "betrag", "buchung", "zweck"]
+        fields = ["datum", "betrag", "buchung", "zweck"]
 
-    pdfs = dateien(args.pdf)
-    fehler = 0 if pdfs else 1
+    pdfs = files(args.pdf)
+    errors = 0 if pdfs else 1
     
     try:
         
@@ -158,33 +158,33 @@ def main():
             try:
                 n = 0
                 
-                for u in umsaetze(path, args.verbose):
-                    werte = []
+                for transaction in transactions(path, args.verbose):
+                    values = []
                     
-                    for feld in felder:
+                    for field in fields:
                         
-                        if feld == "empty":
-                            werte.append("")
+                        if field == "empty":
+                            values.append("")
                         
-                        elif feld == "datum":
-                            werte.append(u["datum"])
+                        elif field == "datum":
+                            values.append(transaction["datum"])
                         
-                        elif feld == "betrag":
-                            werte.append(u["betrag"])
+                        elif field == "betrag":
+                            values.append(transaction["betrag"])
                         
-                        elif feld == "buchung":
-                            werte.append(u["buchung"])
+                        elif field == "buchung":
+                            values.append(transaction["buchung"])
                         
-                        elif feld == "zweck":
-                            werte.append(u["zweck"][0] if u["zweck"] else "")
+                        elif field == "zweck":
+                            values.append(transaction["zweck"][0] if transaction["zweck"] else "")
                     
-                    print(args.sep.join(werte), file=out)
+                    print(args.sep.join(values), file=out)
                     n += 1
                 
                 print(f"{path}: {n} Umsätze", file=sys.stderr)
             
             except Exception as e:  # eine kaputte Datei bricht nicht alles ab
-                fehler += 1
+                errors += 1
                 print(f"{path}: FEHLER {e}", file=sys.stderr)
     
     finally:
@@ -192,7 +192,7 @@ def main():
         if out is not sys.stdout:
             out.close()
     
-    sys.exit(1 if fehler else 0)
+    sys.exit(1 if errors else 0)
 
 
 if __name__ == "__main__":
